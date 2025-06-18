@@ -1,263 +1,217 @@
 # 📈 Stock Market Prediction Tool
 
-A comprehensive AI-powered tool for predicting stock market movements using advanced machine learning algorithms and extensive financial data analysis.
+A comprehensive AI-powered tool for predicting stock market movements using advanced machine learning algorithms and extensive feature engineering.
 
 ## 🚀 Features
 
-### Data Collection
-- **Multi-source data**: Yahoo Finance, Alpha Vantage, FRED (Federal Reserve Economic Data)
-- **Comprehensive coverage**: Stock prices, volume, technical indicators, economic indicators
-- **Real-time updates**: Live data fetching capabilities
-- **Historical data**: Extensive historical data for training
+### **Data Collection**
+- **Multi-source data**: Yahoo Finance, Alpha Vantage, FRED
+- **File upload support**: Import CSV/Excel files with OHLCV data
+- **Real-time data**: Fetch live stock data for any symbol
+- **Multiple stocks**: Analyze multiple stocks simultaneously
 
-### Feature Engineering
-- **100+ Technical Indicators**: RSI, MACD, Bollinger Bands, Moving Averages, etc.
-- **Statistical Features**: Rolling statistics, volatility measures, momentum indicators
-- **Market Microstructure**: Order flow proxies, price efficiency, spread analysis
-- **Time-based Features**: Cyclical encoding, seasonal patterns, market session features
-- **Economic Indicators**: GDP, unemployment, inflation, interest rates, exchange rates
+### **Advanced Feature Engineering**
+- **100+ Technical Indicators**: RSI, MACD, Bollinger Bands, Moving Averages
+- **Statistical Features**: Rolling statistics, volatility measures, momentum
+- **Market Microstructure**: Volume analysis, price efficiency, money flow
+- **Time Features**: Day, month, quarter, year patterns
+- **Target Variables**: Multiple prediction horizons (1, 3, 5, 10, 20 days)
 
-### Machine Learning Models
-- **Ensemble Methods**: Random Forest, XGBoost, LightGBM, CatBoost
-- **Deep Learning**: Dense Neural Networks, LSTM for time series
-- **Traditional ML**: Linear Regression, SVM, Gradient Boosting
-- **Hybrid Approaches**: Combination of multiple model types
+### **Machine Learning Models**
+- **Ensemble Methods**: Random Forest, Gradient Boosting, XGBoost, LightGBM
+- **Deep Learning**: Neural Networks, LSTM for time series
+- **Traditional ML**: Linear Regression, Ridge, Lasso, SVM
+- **Multiple Tasks**: Regression (price prediction) and Classification (up/down)
 
-### Evaluation & Backtesting
-- **Comprehensive Metrics**: RMSE, MAE, R², Sharpe Ratio, Maximum Drawdown
-- **Backtesting Framework**: Strategy performance analysis
-- **Rolling Window Evaluation**: Time-series cross-validation
-- **Visualization**: Interactive charts and performance plots
+### **User Interfaces**
+- **Desktop GUI**: PySimpleGUI application with tabs and interactive features
+- **Web Interface**: Streamlit web app (alternative option)
+- **Command Line**: Direct Python scripts for automation
 
-### User Interface
-- **Streamlit Web App**: User-friendly web interface
-- **Real-time Predictions**: Instant stock predictions
-- **Interactive Charts**: Plotly-based visualizations
-- **Batch Processing**: Multiple stock analysis
+### **Visualization & Analysis**
+- **Interactive Plots**: Actual vs Predicted, Feature Importance, Time Series
+- **Performance Metrics**: MSE, MAE, RMSE, Accuracy
+- **Results Tables**: Predictions, feature rankings, model comparisons
 
 ## 🛠️ Installation
 
 ### Prerequisites
-- Python 3.8 or higher
-- pip package manager
+- Python 3.10 or higher
+- macOS (tested on Apple Silicon M1/M2/M3)
 
 ### Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd stock-market-prediction-tool
-   ```
-
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Optional: Set up API keys** (for enhanced data collection)
-   ```bash
-   # Create a .env file
-   echo "ALPHA_VANTAGE_API_KEY=your_key_here" > .env
-   echo "FRED_API_KEY=your_key_here" >> .env
-   ```
-
-## 🚀 Quick Start
-
-### 1. Run the Application
 ```bash
+# Clone the repository
+git clone <repository-url>
+cd stock-market-prediction-tool
+
+# Install Homebrew dependencies (macOS)
+brew install python@3.10 tcl-tk
+brew install python-tk@3.10
+
+# Create virtual environment
+python3.10 -m venv venv310
+source venv310/bin/activate
+
+# Install Python dependencies
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install --extra-index-url https://PySimpleGUI.net/install PySimpleGUI
+```
+
+## 🎯 Quick Start
+
+### Desktop GUI (Recommended)
+```bash
+source venv310/bin/activate
+python3 app_gui.py
+```
+
+### Web Interface
+```bash
+source venv310/bin/activate
 streamlit run main.py
 ```
 
-### 2. Load Data
-- Open the web interface in your browser
-- Enter stock symbols (e.g., AAPL, MSFT, GOOGL)
-- Choose time period (1y, 2y, 5y, 10y, max)
-- Click "Load Data"
-
-### 3. Train Model
-- Select model type (Ensemble, Tree, Neural, Deep)
-- Choose prediction task (Regression or Classification)
-- Set prediction horizon (1, 3, 5, 10, 20 days)
-- Click "Train Model"
-
-### 4. Make Predictions
-- Use the prediction interface to get forecasts
-- View performance metrics and visualizations
-- Download results for further analysis
-
-## 📊 Usage Examples
-
-### Basic Usage
-```python
-from data_collector import DataCollector
-from feature_engineering import FeatureEngineer
-from models import AdvancedStockPredictor
-from evaluation import ModelEvaluator
-
-# Initialize components
-collector = DataCollector()
-fe = FeatureEngineer()
-predictor = AdvancedStockPredictor(model_type='ensemble', task='regression')
-evaluator = ModelEvaluator()
-
-# Load data
-symbols = ['AAPL', 'MSFT', 'GOOGL']
-data = collector.create_comprehensive_dataset(symbols)
-
-# Engineer features
-engineered_data = fe.engineer_all_features(data)
-
-# Train model
-X_train, X_val, y_train, y_val = split_data(engineered_data)
-predictor.train_models(X_train, y_train, X_val, y_val)
-
-# Make predictions
-predictions = predictor.ensemble_predict(X_val)
-
-# Evaluate results
-report = evaluator.generate_evaluation_report(data, predictions)
+### Command Line
+```bash
+source venv310/bin/activate
+python demo.py
 ```
 
-### Advanced Usage
-```python
-# Custom feature engineering
-custom_features = fe.add_technical_indicators(data)
-custom_features = fe.add_statistical_features(custom_features)
-custom_features = fe.add_market_microstructure_features(custom_features)
+## 📱 Using the Desktop GUI
 
-# Model comparison
-models = {
-    'xgboost': predictor.models['xgboost'],
-    'lstm': predictor.models['lstm'],
-    'ensemble': predictor.models
-}
+### 1. **Data Loading Tab**
+- **Upload CSV/Excel**: Browse and select your OHLCV data file
+- **Fetch Online**: Enter stock symbols (e.g., AAPL, MSFT, GOOGL)
+- **Data Information**: View shape, date range, and sample data
 
-comparison = evaluator.compare_models(data, models)
-```
+### 2. **Feature Engineering Tab**
+- **Engineer Features**: Creates 100+ technical and statistical indicators
+- **Feature Information**: Shows feature categories and counts
+- **Sample Data**: Displays first 5 rows of engineered features
 
-## 📈 Model Performance
+### 3. **Model Training Tab**
+- **Model Type**: Choose from ensemble, tree, linear, neural, deep
+- **Prediction Task**: Regression (price) or Classification (up/down)
+- **Target Horizon**: 1, 3, 5, 10, or 20 days
+- **Training Progress**: Real-time status and metrics
 
-The tool includes multiple evaluation metrics:
+### 4. **Results Tab**
+- **Show Results**: Display model performance metrics
+- **Predictions Table**: Actual vs predicted values
+- **Generate Plots**: Interactive visualizations
 
-### Regression Metrics
-- **RMSE**: Root Mean Square Error
-- **MAE**: Mean Absolute Error
-- **R²**: Coefficient of Determination
-- **Directional Accuracy**: Percentage of correct direction predictions
-- **Information Ratio**: Risk-adjusted return measure
+## 📊 Supported Data Formats
 
-### Classification Metrics
-- **Accuracy**: Overall prediction accuracy
-- **Precision**: True positive rate
-- **Recall**: Sensitivity
-- **F1-Score**: Harmonic mean of precision and recall
-- **AUC-ROC**: Area under ROC curve
+### CSV/Excel Files
+Your data file should contain these columns:
+- `Date` (index): Date in YYYY-MM-DD format
+- `Open`: Opening price
+- `High`: Highest price
+- `Low`: Lowest price
+- `Close`: Closing price
+- `Volume`: Trading volume
 
-### Trading Performance
-- **Total Return**: Overall strategy return
-- **Sharpe Ratio**: Risk-adjusted returns
-- **Maximum Drawdown**: Largest peak-to-trough decline
-- **Win Rate**: Percentage of profitable trades
-- **Average Trade**: Mean return per trade
+### Stock Symbols
+Popular symbols to try:
+- **AAPL**: Apple Inc.
+- **MSFT**: Microsoft Corporation
+- **GOOGL**: Alphabet Inc.
+- **AMZN**: Amazon.com Inc.
+- **TSLA**: Tesla Inc.
 
 ## 🔧 Configuration
 
-### Model Parameters
-```python
-# Ensemble model configuration
-predictor = AdvancedStockPredictor(
-    model_type='ensemble',  # 'linear', 'tree', 'neural', 'deep'
-    task='regression'       # 'regression' or 'classification'
-)
+### Model Settings
+- **Ensemble**: Best overall performance (recommended)
+- **Tree**: Good for non-linear patterns
+- **Linear**: Fast and interpretable
+- **Neural**: Complex pattern recognition
+- **Deep**: Advanced deep learning models
 
-# Feature selection
-features = fe.select_features(
-    data, 
-    target_column='Target_Return_1d',
-    method='correlation',   # 'correlation', 'variance', 'mutual_info'
-    threshold=0.01
-)
-```
+### Feature Engineering
+- **Technical Indicators**: RSI, MACD, Bollinger Bands, Moving Averages
+- **Statistical Features**: Rolling windows, volatility, momentum
+- **Time Features**: Calendar effects, seasonal patterns
+- **Target Variables**: Multiple prediction horizons
 
-### Data Sources
-```python
-# Configure data sources
-collector = DataCollector(
-    alpha_vantage_key='your_key',  # Optional
-    fred_key='your_key'            # Optional
-)
+## 📈 Example Workflow
 
-# Load different data types
-stock_data = collector.get_stock_data('AAPL', period='5y')
-market_data = collector.get_market_data(['^GSPC', '^VIX'])
-economic_data = collector.get_economic_indicators()
-```
+1. **Load Data**: Upload CSV file or fetch AAPL, MSFT, GOOGL
+2. **Engineer Features**: Creates 188 features from raw data
+3. **Train Model**: Ensemble model for 10-day return prediction
+4. **View Results**: Check MSE, MAE, and prediction accuracy
+5. **Generate Plots**: Visualize actual vs predicted values
 
-## 📁 Project Structure
+## 🏗️ Project Structure
 
 ```
 stock-market-prediction-tool/
-├── main.py                 # Main Streamlit application
+├── app_gui.py              # PySimpleGUI desktop application
+├── main.py                 # Streamlit web application
 ├── data_collector.py       # Data collection from multiple sources
-├── feature_engineering.py  # Feature creation and engineering
-├── models.py              # Machine learning models
+├── feature_engineering.py  # 100+ feature engineering functions
+├── models.py              # Machine learning models and training
 ├── evaluation.py          # Model evaluation and backtesting
+├── demo.py                # Command-line demo script
+├── test_app.py            # Testing and validation scripts
 ├── requirements.txt       # Python dependencies
-├── README.md             # This file
-└── examples/             # Usage examples
-    ├── basic_usage.py
-    ├── advanced_usage.py
-    └── custom_models.py
+├── README.md              # This file
+└── examples/              # Example usage scripts
 ```
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+**Tkinter Error**: 
+```bash
+brew install python-tk@3.10
+```
+
+**PySimpleGUI Import Error**:
+```bash
+pip install --extra-index-url https://PySimpleGUI.net/install PySimpleGUI
+```
+
+**Feature Engineering Empty Data**:
+- Ensure your data has sufficient rows (at least 200)
+- Check that date index is properly formatted
+- Verify OHLCV columns are present
+
+**Model Training Errors**:
+- Use numerical data only (excludes Symbol columns automatically)
+- Ensure target column exists in engineered data
+- Check for sufficient training samples
 
 ## 🤝 Contributing
 
-We welcome contributions! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
-
-### Development Setup
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-## 📝 License
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## ⚠️ Disclaimer
+## 🙏 Acknowledgments
 
-This tool is for educational and research purposes only. Stock market predictions are inherently uncertain and should not be used as the sole basis for investment decisions. Always conduct thorough research and consider consulting with financial advisors before making investment decisions.
+- **Yahoo Finance**: Stock data API
+- **Alpha Vantage**: Technical indicators and news sentiment
+- **FRED**: Economic indicators
+- **Scikit-learn**: Machine learning algorithms
+- **PySimpleGUI**: Desktop GUI framework
+- **Streamlit**: Web application framework
 
-## 🆘 Support
+## 📞 Support
 
-If you encounter any issues or have questions:
-
-1. Check the [Issues](https://github.com/your-repo/issues) page
-2. Create a new issue with detailed information
-3. Include error messages and system information
-
-## 🔮 Future Enhancements
-
-- [ ] Real-time streaming data integration
-- [ ] Advanced deep learning models (Transformers, GANs)
-- [ ] Sentiment analysis from news and social media
-- [ ] Portfolio optimization algorithms
-- [ ] Mobile app version
-- [ ] API endpoints for external integration
-- [ ] More economic indicators and alternative data sources
-
-## 📊 Performance Benchmarks
-
-| Model Type | RMSE | MAE | R² | Training Time |
-|------------|------|-----|----|---------------|
-| Linear | 0.0234 | 0.0187 | 0.156 | 2s |
-| Tree | 0.0211 | 0.0169 | 0.234 | 15s |
-| Neural | 0.0208 | 0.0165 | 0.245 | 45s |
-| Ensemble | 0.0192 | 0.0151 | 0.312 | 60s |
-| Deep | 0.0189 | 0.0148 | 0.325 | 120s |
-
-*Benchmarks based on S&P 500 data, 5-year period, daily predictions*
+For issues and questions:
+1. Check the troubleshooting section
+2. Review the example scripts
+3. Open an issue on GitHub
 
 ---
 
