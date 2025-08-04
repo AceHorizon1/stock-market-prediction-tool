@@ -42,7 +42,13 @@ class EnhancedStockPredictionApp:
     """
     
     def __init__(self):
-        self.data_collector = EnhancedDataCollector()
+        # Initialize Alpha Vantage data collector with API key
+        api_key = config.api.alpha_vantage_key
+        if not api_key:
+            st.warning("⚠️ Alpha Vantage API key not configured. Please set it in config or environment variables.")
+            api_key = None  # Will use demo key or show error
+        
+        self.data_collector = EnhancedDataCollector(api_key=api_key)
         self.feature_engineer = EnhancedFeatureEngineer()
         self.predictor = None
         self.evaluator = ModelEvaluator()
@@ -68,6 +74,33 @@ class EnhancedStockPredictionApp:
         
         # Sidebar
         self._create_sidebar()
+        
+        # Debug session state - moved to main area
+        with st.expander("🔍 Debug Information", expanded=True):
+            st.write(f"**Session State:** data_loaded = {st.session_state.get('data_loaded', False)}")
+            st.write(f"**Data Object:** self.data is {type(self.data)}")
+            if self.data is not None:
+                st.write(f"**Data Shape:** {self.data.shape}")
+                st.write(f"**Data Columns:** {list(self.data.columns)}")
+            else:
+                st.write("**Data Object:** None")
+            
+            # Manual override button
+            if st.button("🔧 Force Data Loaded"):
+                st.session_state.data_loaded = True
+                st.success("✅ Forced data_loaded = True")
+                st.rerun()
+            
+            # Data inspection button
+            if st.button("🔍 Inspect Data"):
+                if self.data is not None:
+                    st.success(f"✅ Data exists: {self.data.shape}")
+                    st.write("**Columns:**", list(self.data.columns))
+                    st.write("**First row:**", self.data.iloc[0].to_dict())
+                    st.write("**Data preview:**")
+                    st.dataframe(self.data.head(3))
+                else:
+                    st.error("❌ No data found")
         
         # Main content
         if st.session_state.data_loaded:
@@ -156,9 +189,16 @@ class EnhancedStockPredictionApp:
                 )
                 
                 # Load data button with progress
-                if st.button("🚀 Load Data", type="primary", use_container_width=True):
-                    with st.spinner("Loading data..."):
-                        self._load_data_online(symbols, period)
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("🚀 Load Data", type="primary", use_container_width=True):
+                        with st.spinner("Loading data..."):
+                            self._load_data_online(symbols, period)
+                
+                with col2:
+                    if st.button("📥 Download CSV", type="secondary", use_container_width=True):
+                        with st.spinner("Downloading data..."):
+                            self._download_csv_data(symbols, period)
             
             else:
                 # File upload
@@ -288,6 +328,30 @@ class EnhancedStockPredictionApp:
             4. **View Results**: Analyze predictions and performance metrics
             5. **Interactive Dashboard**: Explore data with modern visualizations
             """)
+        
+        # Test data loading
+        st.subheader("🧪 Test Data Loading")
+        if st.button("📊 Test Load Sample Data"):
+            # Create sample data
+            import pandas as pd
+            import numpy as np
+            from datetime import datetime, timedelta
+            
+            # Create sample stock data
+            dates = pd.date_range(start='2023-01-01', end='2023-12-31', freq='D')
+            sample_data = pd.DataFrame({
+                'Open': np.random.uniform(100, 200, len(dates)),
+                'High': np.random.uniform(100, 200, len(dates)),
+                'Low': np.random.uniform(100, 200, len(dates)),
+                'Close': np.random.uniform(100, 200, len(dates)),
+                'Volume': np.random.randint(1000000, 10000000, len(dates)),
+                'Symbol': 'AAPL'
+            }, index=dates)
+            
+            self.data = sample_data
+            st.session_state.data_loaded = True
+            st.success("✅ Sample data loaded! Check the tabs above.")
+            st.rerun()
     
     def _create_main_content(self):
         """Create main content with tabs"""
@@ -317,51 +381,169 @@ class EnhancedStockPredictionApp:
     def _load_data_online(self, symbols: list, period: str):
         """Load data from online sources"""
         try:
+            if not symbols:
+                st.error("❌ Please enter at least one stock symbol")
+                return
+            
+            st.info(f"🔄 Loading data for {len(symbols)} symbols: {', '.join(symbols)}")
+            
             # Use parallel processing for faster data loading
             self.data = self.data_collector.fetch_stocks_parallel(symbols, period)
             
-            # Validate data
-            validation = self.data_collector.validate_data(self.data)
-            
-            if validation['data_quality_score'] > 0.8:
-                st.session_state.data_loaded = True
-                st.success(f"✅ Data loaded successfully! {len(self.data)} rows from {len(symbols)} symbols")
+            # Ensure data is properly formatted
+            if self.data is not None and not self.data.empty:
+                # Convert index to datetime if needed
+                if not isinstance(self.data.index, pd.DatetimeIndex):
+                    try:
+                        self.data.index = pd.to_datetime(self.data.index)
+                    except Exception as e:
+                        st.warning(f"Date conversion warning: {e}")
                 
-                # Show data summary
-                summary = self.data_collector.get_data_summary(self.data)
-                st.json(summary)
+                # Validate data
+                validation = self.data_collector.validate_data(self.data)
+                
+                if validation['data_quality_score'] > 0.8:
+                    st.session_state.data_loaded = True
+                    st.success(f"✅ Data loaded successfully! {len(self.data)} rows from {len(symbols)} symbols")
+                    
+                    # Show data summary
+                    summary = self.data_collector.get_data_summary(self.data)
+                    st.json(summary)
+                else:
+                    st.warning(f"⚠️ Data quality score: {validation['data_quality_score']:.2f}")
+                    st.json(validation)
             else:
-                st.warning(f"⚠️ Data quality score: {validation['data_quality_score']:.2f}")
-                st.json(validation)
+                st.error("❌ No data was loaded. Please check your symbols and try again.")
                 
         except Exception as e:
             st.error(f"❌ Error loading data: {str(e)}")
+            st.exception(e)  # Show full error details
+    
+    def _download_csv_data(self, symbols: list, period: str):
+        """Download stock data as CSV"""
+        try:
+            if not symbols:
+                st.error("❌ Please enter at least one stock symbol")
+                return
+            
+            st.info(f"📥 Downloading data for {len(symbols)} symbols: {', '.join(symbols)}")
+            
+            # Fetch data
+            data = self.data_collector.fetch_stocks_parallel(symbols, period)
+            
+            if data is not None and not data.empty:
+                # Create CSV data
+                csv_data = data.to_csv(index=True)
+                
+                # Generate filename
+                symbols_str = "_".join(symbols)
+                filename = f"stock_data_{symbols_str}_{period}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                
+                # Create download button
+                st.download_button(
+                    label="📥 Download CSV",
+                    data=csv_data,
+                    file_name=filename,
+                    mime="text/csv",
+                    help="Download the stock data as a CSV file"
+                )
+                
+                st.success(f"✅ CSV data ready for download! {len(data)} rows")
+                
+                # Show preview
+                st.subheader("📋 Data Preview")
+                st.dataframe(data.head(10), use_container_width=True)
+                
+            else:
+                st.error("❌ No data available for download")
+                
+        except Exception as e:
+            st.error(f"❌ Error downloading data: {str(e)}")
+            st.exception(e)
     
     def _load_data_file(self, uploaded_file):
         """Load data from uploaded file"""
         try:
+            st.info("🔄 Starting file upload process...")
+            
             # Save uploaded file temporarily
             with open("temp_upload.csv", "wb") as f:
                 f.write(uploaded_file.getbuffer())
             
-            # Load and validate data
-            self.data = self.data_collector.load_csv_file("temp_upload.csv")
-            validation = self.data_collector.validate_data(self.data)
+            st.info("✅ File saved temporarily")
             
-            if validation['data_quality_score'] > 0.8:
+            # Load and validate data
+            st.info("🔄 Loading CSV file...")
+            self.data = self.data_collector.load_csv_file("temp_upload.csv")
+            
+            st.info(f"✅ CSV loaded: self.data is {type(self.data)}")
+            if self.data is not None:
+                st.info(f"✅ Data shape: {self.data.shape}")
+            else:
+                st.error("❌ Data is None after loading")
+                return
+            
+            # Debug information
+            st.info(f"📊 File loaded: {len(self.data)} rows, {len(self.data.columns)} columns")
+            st.info(f"📋 Columns: {list(self.data.columns)}")
+            st.info(f"📅 Index type: {type(self.data.index).__name__}")
+            st.info(f"📅 Index sample: {self.data.index[:5].tolist()}")
+            
+            # Show first few rows for debugging
+            st.info("📋 First 3 rows of data:")
+            st.dataframe(self.data.head(3), use_container_width=True)
+            
+            # Ensure proper datetime conversion
+            if self.data is not None and not self.data.empty:
+                try:
+                    # Try to convert index to datetime if it's not already
+                    if not isinstance(self.data.index, pd.DatetimeIndex):
+                        # Check if there's a Date column
+                        if 'Date' in self.data.columns:
+                            st.info("🔄 Converting 'Date' column to datetime index...")
+                            self.data['Date'] = pd.to_datetime(self.data['Date'])
+                            self.data = self.data.set_index('Date')
+                        else:
+                            # Try to convert the index directly
+                            st.info("🔄 Converting index to datetime...")
+                            self.data.index = pd.to_datetime(self.data.index)
+                        
+                        st.success("✅ Datetime conversion successful")
+                except Exception as e:
+                    st.warning(f"⚠️ Date conversion warning: {e}")
+                    # If conversion fails, reset to numeric index
+                    self.data = self.data.reset_index(drop=True)
+                    st.info("🔄 Reset to numeric index")
+                
+                validation = self.data_collector.validate_data(self.data)
+                
+                # Show validation results
+                st.info(f"📊 Data Quality Score: {validation['data_quality_score']:.2f}")
+                st.json(validation)
+                
+                # Set data as loaded regardless of quality score (user can decide)
                 st.session_state.data_loaded = True
                 st.success(f"✅ File loaded successfully! {len(self.data)} rows")
-                st.json(validation)
+                st.info(f"✅ Session state updated: data_loaded = {st.session_state.data_loaded}")
+                
+                # Show warning if quality is low but still allow use
+                if validation['data_quality_score'] < 0.8:
+                    st.warning(f"⚠️ Data quality is low ({validation['data_quality_score']:.2f}), but you can still proceed")
             else:
-                st.warning(f"⚠️ Data quality score: {validation['data_quality_score']:.2f}")
-                st.json(validation)
+                st.error("❌ No data loaded from file")
                 
         except Exception as e:
             st.error(f"❌ Error loading file: {str(e)}")
+            st.exception(e)
     
     def _engineer_features(self, technical: bool, statistical: bool, microstructure: bool, time: bool):
         """Engineer features with selected options"""
         try:
+            # Check if data is loaded
+            if self.data is None or self.data.empty:
+                st.error("❌ No data loaded. Please load data first.")
+                return
+            
             # Update config based on user selection
             config.features.technical_indicators = technical
             config.features.statistical_features = statistical
@@ -370,6 +552,11 @@ class EnhancedStockPredictionApp:
             
             # Engineer features
             self.engineered_data = self.feature_engineer.engineer_all_features(self.data)
+            
+            # Check if feature engineering was successful
+            if self.engineered_data is None or self.engineered_data.empty:
+                st.error("❌ Feature engineering failed. No features were created.")
+                return
             
             st.session_state.features_engineered = True
             st.success(f"✅ Features engineered successfully! {self.engineered_data.shape[1]} features created")
@@ -380,6 +567,7 @@ class EnhancedStockPredictionApp:
             
         except Exception as e:
             st.error(f"❌ Error engineering features: {str(e)}")
+            st.exception(e)  # Show full error details
     
     def _train_model(self, model_type: str, task: str, target_horizon: int):
         """Train model with selected parameters"""
@@ -412,6 +600,31 @@ class EnhancedStockPredictionApp:
         if self.data is not None:
             st.subheader("📊 Data Overview")
             
+            # Ensure index is datetime
+            try:
+                if not isinstance(self.data.index, pd.DatetimeIndex):
+                    # Try to convert index to datetime
+                    if self.data.index.dtype in ['int64', 'int32', 'object']:
+                        # If index is numeric or object, try to convert
+                        try:
+                            self.data.index = pd.to_datetime(self.data.index)
+                        except:
+                            # If that fails, check if there's a Date column
+                            if 'Date' in self.data.columns:
+                                self.data['Date'] = pd.to_datetime(self.data['Date'])
+                                self.data = self.data.set_index('Date')
+                            else:
+                                # If all else fails, reset to numeric index
+                                self.data = self.data.reset_index(drop=True)
+                                st.warning("⚠️ Could not convert to datetime, using numeric index")
+                    else:
+                        # If it's already datetime-like, just ensure it's DatetimeIndex
+                        self.data.index = pd.to_datetime(self.data.index)
+            except Exception as e:
+                st.warning(f"⚠️ Date conversion warning: {e}")
+                # If conversion fails, create a simple range index
+                self.data = self.data.reset_index(drop=True)
+            
             # Key metrics
             col1, col2, col3, col4 = st.columns(4)
             
@@ -422,7 +635,15 @@ class EnhancedStockPredictionApp:
                 st.metric("Symbols", self.data['Symbol'].nunique() if 'Symbol' in self.data.columns else 1)
             
             with col3:
-                st.metric("Date Range", f"{self.data.index.min().strftime('%Y-%m-%d')} to {self.data.index.max().strftime('%Y-%m-%d')}")
+                try:
+                    if isinstance(self.data.index, pd.DatetimeIndex):
+                        date_range = f"{self.data.index.min().strftime('%Y-%m-%d')} to {self.data.index.max().strftime('%Y-%m-%d')}"
+                    else:
+                        date_range = f"Row 1 to Row {len(self.data)}"
+                    st.metric("Date Range", date_range)
+                except Exception as e:
+                    st.metric("Date Range", "N/A")
+                    st.warning(f"⚠️ Date range calculation failed: {e}")
             
             with col4:
                 st.metric("Memory Usage", f"{self.data.memory_usage(deep=True).sum() / 1024 / 1024:.1f} MB")
@@ -443,58 +664,140 @@ class EnhancedStockPredictionApp:
             # Create interactive price chart
             fig = go.Figure()
             
-            fig.add_trace(go.Candlestick(
-                x=symbol_data.index,
-                open=symbol_data['Open'],
-                high=symbol_data['High'],
-                low=symbol_data['Low'],
-                close=symbol_data['Close'],
-                name='OHLC'
-            ))
-            
-            fig.update_layout(
-                title=f"Price Chart - {selected_symbol if 'Symbol' in self.data.columns else 'Data'}",
-                xaxis_title="Date",
-                yaxis_title="Price",
-                height=500
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
+            # Ensure we have valid data for plotting
+            try:
+                # Check if required columns exist
+                required_cols = ['Open', 'High', 'Low', 'Close']
+                if all(col in symbol_data.columns for col in required_cols):
+                    fig.add_trace(go.Candlestick(
+                        x=symbol_data.index,
+                        open=symbol_data['Open'],
+                        high=symbol_data['High'],
+                        low=symbol_data['Low'],
+                        close=symbol_data['Close'],
+                        name='OHLC'
+                    ))
+                    
+                    fig.update_layout(
+                        title=f"Price Chart - {selected_symbol if 'Symbol' in self.data.columns else 'Data'}",
+                        xaxis_title="Date",
+                        yaxis_title="Price",
+                        height=500
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("⚠️ Missing required columns (Open, High, Low, Close) for candlestick chart")
+                    # Show line chart instead
+                    if 'Close' in symbol_data.columns:
+                        fig.add_trace(go.Scatter(
+                            x=symbol_data.index,
+                            y=symbol_data['Close'],
+                            mode='lines',
+                            name='Close Price'
+                        ))
+                        fig.update_layout(
+                            title=f"Close Price - {selected_symbol if 'Symbol' in self.data.columns else 'Data'}",
+                            xaxis_title="Date",
+                            yaxis_title="Price",
+                            height=500
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.error("❌ No suitable columns found for charting")
+            except Exception as e:
+                st.error(f"❌ Error creating chart: {str(e)}")
+                st.exception(e)
     
     def _show_feature_engineering(self):
         """Show feature engineering results"""
+        st.subheader("🔧 Feature Engineering")
+        
+        # Debug session state
+        st.info(f"🔍 Session state - data_loaded: {st.session_state.get('data_loaded', False)}")
+        st.info(f"🔍 self.data is {type(self.data)}")
+        if self.data is not None:
+            st.info(f"🔍 self.data.empty: {self.data.empty}")
+            st.info(f"🔍 self.data.shape: {self.data.shape}")
+        
+        # Check if data is loaded
+        if self.data is None or self.data.empty:
+            st.error("❌ No data loaded. Please load data first.")
+            st.info("💡 Try uploading a CSV file or loading online data")
+            return
+        
+        # Show data status
+        st.info(f"📊 Data loaded: {len(self.data)} rows, {len(self.data.columns)} columns")
+        st.info(f"📅 Index type: {type(self.data.index).__name__}")
+        
+        # Debug button
+        if st.button("🔍 Debug Data", type="secondary"):
+            st.write("### Data Debug Information:")
+            st.write(f"**Data type:** {type(self.data)}")
+            st.write(f"**Data shape:** {self.data.shape}")
+            st.write(f"**Data columns:** {list(self.data.columns)}")
+            st.write(f"**Data index:** {type(self.data.index)}")
+            st.write(f"**First 3 rows:**")
+            st.dataframe(self.data.head(3))
+            st.write(f"**Session state:** {dict(st.session_state)}")
+        
+        # Feature engineering controls
+        st.subheader("⚙️ Feature Engineering Controls")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            technical_indicators = st.checkbox("Technical Indicators", value=True)
+            statistical_features = st.checkbox("Statistical Features", value=True)
+        
+        with col2:
+            microstructure_features = st.checkbox("Market Microstructure", value=True)
+            time_features = st.checkbox("Time Features", value=True)
+        
+        if st.button("🔧 Engineer Features", type="primary", use_container_width=True):
+            with st.spinner("Engineering features..."):
+                self._engineer_features(technical_indicators, statistical_features, 
+                                     microstructure_features, time_features)
+        
+        # Show results if available
         if self.engineered_data is not None:
             st.subheader("🔧 Feature Engineering Results")
             
             # Feature summary
-            summary = self.feature_engineer.get_feature_summary(self.engineered_data)
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric("Total Features", summary['total_features'])
-            
-            with col2:
-                st.metric("Technical Indicators", summary['feature_categories']['technical_indicators'])
-            
-            with col3:
-                st.metric("Statistical Features", summary['feature_categories']['statistical_features'])
-            
-            # Feature categories chart
-            st.subheader("📊 Feature Categories")
-            
-            categories = summary['feature_categories']
-            fig = px.pie(
-                values=list(categories.values()),
-                names=list(categories.keys()),
-                title="Feature Distribution by Category"
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Feature preview
-            st.subheader("📋 Engineered Features Preview")
-            st.dataframe(self.engineered_data.head(10), use_container_width=True)
+            try:
+                summary = self.feature_engineer.get_feature_summary(self.engineered_data)
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric("Total Features", summary['total_features'])
+                
+                with col2:
+                    st.metric("Technical Indicators", summary['feature_categories']['technical_indicators'])
+                
+                with col3:
+                    st.metric("Statistical Features", summary['feature_categories']['statistical_features'])
+                
+                # Feature categories chart
+                st.subheader("📊 Feature Categories")
+                
+                categories = summary['feature_categories']
+                fig = px.pie(
+                    values=list(categories.values()),
+                    names=list(categories.keys()),
+                    title="Feature Distribution by Category"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Feature preview
+                st.subheader("📋 Engineered Features Preview")
+                st.dataframe(self.engineered_data.head(10), use_container_width=True)
+                
+            except Exception as e:
+                st.error(f"❌ Error showing feature engineering results: {str(e)}")
+                st.exception(e)
+        else:
+            st.info("💡 Click 'Engineer Features' to start feature engineering")
     
     def _show_model_training(self):
         """Show model training interface"""

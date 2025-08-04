@@ -315,6 +315,11 @@ class EnhancedFeatureEngineer:
         Returns:
             DataFrame with all engineered features
         """
+        # Validate input data
+        if data is None or data.empty:
+            logger.error("Input data is None or empty")
+            raise ValueError("Input data is None or empty")
+        
         if target_horizons is None:
             target_horizons = config.features.target_horizons
         
@@ -338,42 +343,59 @@ class EnhancedFeatureEngineer:
         logger.info("Starting feature engineering...")
         start_time = time.time()
         
-        df = data.copy()
-        
-        # Engineer features in parallel where possible
-        if config.features.technical_indicators:
-            logger.info("Adding technical indicators...")
-            df = self.add_technical_indicators_parallel(df)
-        
-        if config.features.statistical_features:
-            logger.info("Adding statistical features...")
-            df = self.add_statistical_features_optimized(df)
-        
-        if config.features.market_microstructure:
-            logger.info("Adding market microstructure features...")
-            df = self.add_market_microstructure_features(df)
-        
-        if config.features.time_features:
-            logger.info("Adding time features...")
-            df = self.add_time_features(df)
-        
-        # Create target variables
-        logger.info("Creating target variables...")
-        df = self.create_target_variables(df, target_horizons)
-        
-        # Handle missing values
-        logger.info("Handling missing values...")
-        df = self._handle_missing_values(df)
-        
-        # Save to cache
-        if use_cache:
-            self._save_to_cache(df, cache_key)
-        
-        elapsed_time = time.time() - start_time
-        logger.info(f"Feature engineering completed in {elapsed_time:.2f} seconds")
-        logger.info(f"Final shape: {df.shape}")
-        
-        return df
+        try:
+            df = data.copy()
+            
+            # Engineer features in parallel where possible
+            if config.features.technical_indicators:
+                logger.info("Adding technical indicators...")
+                df = self.add_technical_indicators_parallel(df)
+                if df is None or df.empty:
+                    raise ValueError("Technical indicators failed")
+            
+            if config.features.statistical_features:
+                logger.info("Adding statistical features...")
+                df = self.add_statistical_features_optimized(df)
+                if df is None or df.empty:
+                    raise ValueError("Statistical features failed")
+            
+            if config.features.market_microstructure:
+                logger.info("Adding market microstructure features...")
+                df = self.add_market_microstructure_features(df)
+                if df is None or df.empty:
+                    raise ValueError("Market microstructure features failed")
+            
+            if config.features.time_features:
+                logger.info("Adding time features...")
+                df = self.add_time_features(df)
+                if df is None or df.empty:
+                    raise ValueError("Time features failed")
+            
+            # Create target variables
+            logger.info("Creating target variables...")
+            df = self.create_target_variables(df, target_horizons)
+            if df is None or df.empty:
+                raise ValueError("Target variables creation failed")
+            
+            # Handle missing values
+            logger.info("Handling missing values...")
+            df = self._handle_missing_values(df)
+            if df is None or df.empty:
+                raise ValueError("Missing value handling failed")
+            
+            # Save to cache
+            if use_cache:
+                self._save_to_cache(df, cache_key)
+            
+            elapsed_time = time.time() - start_time
+            logger.info(f"Feature engineering completed in {elapsed_time:.2f} seconds")
+            logger.info(f"Final shape: {df.shape}")
+            
+            return df
+            
+        except Exception as e:
+            logger.error(f"Feature engineering failed: {e}")
+            raise e
     
     def _handle_missing_values(self, data: pd.DataFrame) -> pd.DataFrame:
         """Handle missing values in the dataset"""
