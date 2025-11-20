@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta
 import warnings
+from typing import Any, cast
 
 warnings.filterwarnings("ignore")
 
@@ -23,10 +24,10 @@ try:
 except ImportError as e:
     print(f"Warning: Some modules not available: {e}")
 
-    # Create mock classes for demo
-    class MockDataCollector:
+    class EnhancedDataCollector:  # type: ignore[no-redef]
+        """Fallback data collector that generates mock data."""
+
         def fetch_stocks_parallel(self, symbols, period):
-            # Create sample data
             dates = pd.date_range(start="2023-01-01", end="2023-12-31", freq="D")
             data = pd.DataFrame(
                 {
@@ -34,16 +35,17 @@ except ImportError as e:
                     "High": np.random.uniform(100, 200, len(dates)),
                     "Low": np.random.uniform(100, 200, len(dates)),
                     "Close": np.random.uniform(100, 200, len(dates)),
-                    "Volume": np.random.randint(1000000, 10000000, len(dates)),
+                    "Volume": np.random.randint(1_000_000, 10_000_000, len(dates)),
                     "Symbol": symbols[0] if symbols else "AAPL",
                 },
                 index=dates,
             )
             return data
 
-    class MockFeatureEngineer:
+    class EnhancedFeatureEngineer:  # type: ignore[no-redef]
+        """Fallback feature engineer with basic indicators."""
+
         def engineer_all_features(self, data):
-            # Add some basic features
             df = data.copy()
             df["SMA_20"] = df["Close"].rolling(20).mean()
             df["EMA_12"] = df["Close"].ewm(span=12).mean()
@@ -51,14 +53,18 @@ except ImportError as e:
             df["Volatility"] = df["Returns"].rolling(20).std()
             return df
 
-    class MockPredictor:
+    class AdvancedStockPredictor:  # type: ignore[no-redef]
+        """Fallback predictor that returns mock results."""
+
         def train_model(self, data, target, model_type, task):
             return {"status": "success", "model_type": model_type, "task": task}
 
-    class MockEvaluator:
+    class ModelEvaluator:  # type: ignore[no-redef]
+        """Fallback evaluator."""
+
         pass
 
-    class MockConfig:
+    class _MockConfig:
         class API:
             alpha_vantage_key = "demo"
 
@@ -73,11 +79,7 @@ except ImportError as e:
             time_features = True
             target_horizons = [1, 3, 5, 10, 20]
 
-    EnhancedDataCollector = MockDataCollector
-    EnhancedFeatureEngineer = MockFeatureEngineer
-    AdvancedStockPredictor = MockPredictor
-    ModelEvaluator = MockEvaluator
-    config = MockConfig()
+    config = cast(Any, _MockConfig())
 
 # Configure Panel
 pn.extension("plotly", sizing_mode="stretch_width")

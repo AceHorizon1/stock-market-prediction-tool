@@ -571,7 +571,7 @@ class AdvancedStockPredictor(StockPredictor):
 
     def __init__(self, model_type: str = "ensemble", task: str = "regression"):
         super().__init__(model_type, task)
-        self.ensemble_weights = {}
+        self.ensemble_weights: Dict[str, float] = {}
 
     def train_model(
         self,
