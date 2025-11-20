@@ -5,7 +5,7 @@ Features: Caching, parallel processing, advanced feature selection, memory optim
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Tuple, Any, Union
+from typing import Dict, List, Optional, Tuple, Any, Union, Callable
 from pathlib import Path
 import ta
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
@@ -128,7 +128,9 @@ class EnhancedFeatureEngineer:
             ("PSAR", lambda x: ta.trend.psar_down(x["High"], x["Low"], x["Close"])),
         ]
 
-        def calculate_indicator(args: Tuple[str, callable]) -> Tuple[str, pd.Series]:
+        def calculate_indicator(
+            args: Tuple[str, Callable[[pd.DataFrame], pd.Series]],
+        ) -> Tuple[str, pd.Series]:
             """Calculate single indicator"""
             name, func = args
             try:
@@ -568,7 +570,7 @@ class EnhancedFeatureEngineer:
         elif method == "ensemble":
             # Combine multiple methods
             methods = ["correlation", "mutual_info", "random_forest"]
-            feature_scores = {}
+            feature_scores: Dict[str, int] = {}
 
             for method_name in methods:
                 try:

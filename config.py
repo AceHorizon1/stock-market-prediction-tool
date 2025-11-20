@@ -133,7 +133,8 @@ class AppConfig:
 
     def _get_log_handlers(self) -> List[logging.Handler]:
         """Get log handlers based on configuration"""
-        handlers = [logging.StreamHandler()]
+        handlers: List[logging.Handler] = []
+        handlers.append(logging.StreamHandler())
 
         if self.logging.file_path:
             from logging.handlers import RotatingFileHandler

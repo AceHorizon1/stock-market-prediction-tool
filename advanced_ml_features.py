@@ -97,7 +97,7 @@ class SentimentAnalyzer:
                 summary = article.get("summary", "")
                 text = f"{title} {summary}"
 
-                sentiment = self.analyze_text_sentiment(text)
+                sentiment: Dict[str, Any] = self.analyze_text_sentiment(text)
                 sentiment["date"] = datetime.fromtimestamp(
                     article.get("providerPublishTime", 0)
                 )

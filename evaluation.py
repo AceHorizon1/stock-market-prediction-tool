@@ -584,7 +584,7 @@ class ModelEvaluator:
         Returns:
             DataFrame with comparison results
         """
-        comparison_results = []
+        comparison_results: List[Dict[str, Any]] = []
 
         for model_name, predictions in model_predictions.items():
             # Calculate metrics
@@ -600,7 +600,7 @@ class ModelEvaluator:
             backtest = self.backtest_strategy(data, predictions)
 
             # Combine results
-            result = {**metrics, **backtest}
+            result: Dict[str, Any] = {**metrics, **backtest}
             result["model_name"] = model_name
 
             comparison_results.append(result)
