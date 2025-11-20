@@ -91,7 +91,10 @@ class ModelEvaluator:
         return metrics
 
     def calculate_classification_metrics(
-        self, y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray = None
+        self,
+        y_true: np.ndarray,
+        y_pred: np.ndarray,
+        y_prob: Optional[np.ndarray] = None,
     ) -> Dict[str, float]:
         """
         Calculate comprehensive classification metrics
@@ -515,7 +518,7 @@ class ModelEvaluator:
         self,
         data: pd.DataFrame,
         predictions: np.ndarray,
-        y_true: np.ndarray = None,
+        y_true: Optional[np.ndarray] = None,
         task: str = "regression",
     ) -> Dict[str, Any]:
         """
