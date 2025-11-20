@@ -771,7 +771,7 @@ class AdvancedStockPredictor(StockPredictor):
 
         # Calculate weighted average
         weighted_pred = np.zeros(len(X))
-        total_weight = 0
+        total_weight: float = 0.0
 
         for name, pred in predictions.items():
             weight = self.ensemble_weights[name]
