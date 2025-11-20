@@ -4,7 +4,7 @@ import numpy as np
 import requests
 from datetime import datetime, timedelta
 import time
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -317,6 +317,21 @@ class DataCollector:
         
         print(f"Dataset created with shape: {combined_data.shape}")
         return combined_data
+
+    def load_from_file(self, file_path: str) -> pd.DataFrame:
+        """
+        Load data from a CSV or Excel file.
+        Args:
+            file_path: Path to the file (.csv or .xlsx)
+        Returns:
+            DataFrame with loaded data
+        """
+        if file_path.lower().endswith('.csv'):
+            return pd.read_csv(file_path, index_col=0, parse_dates=True)
+        elif file_path.lower().endswith(('.xls', '.xlsx')):
+            return pd.read_excel(file_path, index_col=0, parse_dates=True)
+        else:
+            raise ValueError('Unsupported file type. Please provide a .csv or .xlsx file.')
 
 # Example usage
 if __name__ == "__main__":

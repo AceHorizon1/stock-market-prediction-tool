@@ -57,7 +57,7 @@ class APIConfig:
     news_api_enabled: bool = False
     
     # API Keys (should be loaded from environment variables)
-    alpha_vantage_key: Optional[str] = None
+    alpha_vantage_key: Optional[str] = field(default_factory=lambda: os.getenv('ALPHAVANTAGE_API_KEY', 'R4Y9XE7WYXU6ZNJZ'))
     fred_api_key: Optional[str] = None
     news_api_key: Optional[str] = None
     

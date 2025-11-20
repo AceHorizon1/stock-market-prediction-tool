@@ -10,12 +10,33 @@ from sklearn.neural_network import MLPRegressor, MLPClassifier
 import xgboost as xgb
 import lightgbm as lgb
 from catboost import CatBoostRegressor, CatBoostClassifier
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
+
+# Optional TensorFlow imports (for deep learning models)
+try:
+    import tensorflow as tf
+    from tensorflow import keras
+    from tensorflow.keras import layers
+    TENSORFLOW_AVAILABLE = True
+except ImportError:
+    TENSORFLOW_AVAILABLE = False
+    print("⚠️ TensorFlow not available. Deep learning models will be disabled.")
+
 import joblib
 import warnings
 warnings.filterwarnings('ignore')
+
+# Optional Hugging Face transformers import
+HF_AVAILABLE = False
+try:
+    import torch
+    from hf_transformer_models import HFTransformerStockPredictor
+    HF_AVAILABLE = True
+except ImportError:
+    HF_AVAILABLE = False
+    print("⚠️ Hugging Face transformers not available. Install with: pip install transformers torch")
+except Exception as e:
+    HF_AVAILABLE = False
+    print(f"⚠️ Hugging Face transformers not available due to error: {e}")
 
 class StockPredictor:
     """
@@ -28,7 +49,7 @@ class StockPredictor:
         Initialize the predictor
         
         Args:
-            model_type: Type of model ('linear', 'tree', 'neural', 'ensemble', 'deep')
+            model_type: Type of model ('linear', 'tree', 'neural', 'ensemble', 'deep', 'hf_transformer')
             task: Prediction task ('regression' or 'classification')
         """
         self.model_type = model_type
@@ -37,6 +58,19 @@ class StockPredictor:
         self.scalers = {}
         self.feature_importance = {}
         self.history = {}
+        
+        # Initialize HF transformer if requested
+        if model_type == 'hf_transformer' and HF_AVAILABLE:
+            self.hf_predictor = HFTransformerStockPredictor(
+                model_name="PatchTST",
+                prediction_length=1,
+                context_length=96
+            )
+        elif model_type == 'hf_transformer' and not HF_AVAILABLE:
+            raise ImportError(
+                "Hugging Face transformers not available. "
+                "Install with: pip install transformers torch"
+            )
         
     def create_linear_models(self) -> Dict[str, Any]:
         """Create linear models"""
@@ -93,8 +127,11 @@ class StockPredictor:
                 'svc': SVC(kernel='rbf', C=1.0, gamma='scale', random_state=42)
             }
     
-    def create_deep_learning_model(self, input_shape: int) -> keras.Model:
+    def create_deep_learning_model(self, input_shape: int):
         """Create a deep learning model"""
+        if not TENSORFLOW_AVAILABLE:
+            raise ImportError("TensorFlow is required for deep learning models. Install with: pip install tensorflow")
+        
         model = keras.Sequential([
             layers.Dense(128, activation='relu', input_shape=(input_shape,)),
             layers.Dropout(0.3),
@@ -113,8 +150,11 @@ class StockPredictor:
         model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
         return model
     
-    def create_lstm_model(self, input_shape: Tuple[int, int]) -> keras.Model:
+    def create_lstm_model(self, input_shape: Tuple[int, int]):
         """Create an LSTM model for time series prediction"""
+        if not TENSORFLOW_AVAILABLE:
+            raise ImportError("TensorFlow is required for LSTM models. Install with: pip install tensorflow")
+        
         model = keras.Sequential([
             layers.LSTM(50, return_sequences=True, input_shape=input_shape),
             layers.Dropout(0.2),
@@ -169,6 +209,9 @@ class StockPredictor:
             models = self.create_svm_models()
         elif self.model_type == 'ensemble':
             models = {**self.create_tree_models(), **self.create_linear_models()}
+        elif self.model_type == 'hf_transformer':
+            # HF transformer is handled separately
+            return {}
         else:
             raise ValueError(f"Unknown model type: {self.model_type}")
         
@@ -242,6 +285,63 @@ class StockPredictor:
             except Exception as e:
                 print(f"Error training LSTM: {str(e)}")
         
+        # Train HF transformer if requested
+        if self.model_type == 'hf_transformer':
+            if not HF_AVAILABLE:
+                results['hf_transformer'] = {
+                    'error': 'HF transformers not available. Install with: pip install transformers torch'
+                }
+                print("⚠️ HF transformer not available")
+            else:
+                print("Training Hugging Face Transformer model...")
+                try:
+                    # Check if we have enough data
+                    if len(X_train) < 200:
+                        print(f"⚠️ Warning: Only {len(X_train)} samples. HF transformer needs at least 200 samples.")
+                        results['hf_transformer'] = {
+                            'error': f'Insufficient data: need 200+, got {len(X_train)}'
+                        }
+                    else:
+                        # Prepare data for HF transformer (needs time series format)
+                        # Combine X and y for HF transformer
+                        combined_data = X_train.copy()
+                        combined_data['target'] = y_train
+                        
+                        # Limit features to prevent memory issues
+                        if len(combined_data.columns) > 20:
+                            print(f"⚠️ Limiting features from {len(combined_data.columns)} to 20 to prevent memory issues")
+                            # Keep most important features (first 20)
+                            important_cols = combined_data.columns[:20].tolist()
+                            if 'target' not in important_cols:
+                                important_cols.append('target')
+                            combined_data = combined_data[important_cols]
+                        
+                        # Train HF transformer with minimal settings for stability
+                        print("⚠️ Training with minimal settings to prevent crashes...")
+                        hf_results = self.hf_predictor.train_model(
+                            data=combined_data,
+                            target_column='target',
+                            epochs=3  # Very minimal for stability
+                        )
+                        self.models['hf_transformer'] = self.hf_predictor
+                        results['hf_transformer'] = {
+                            'train_loss': hf_results.get('train_loss', 0),
+                            'eval_loss': hf_results.get('eval_loss', 0)
+                        }
+                        print("✅ HF transformer training completed")
+                except MemoryError:
+                    print("❌ Out of memory error. HF transformer requires too much memory.")
+                    results['hf_transformer'] = {
+                        'error': 'Out of memory. Try using a different model type or reducing data size.'
+                    }
+                except Exception as e:
+                    print(f"❌ Error training HF transformer: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+                    results['hf_transformer'] = {
+                        'error': f'Training failed: {str(e)}'
+                    }
+        
         return results
     
     def evaluate_predictions(self, y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
@@ -292,20 +392,19 @@ class StockPredictor:
         elif model_name == 'dense_nn':
             return model.predict(X).flatten()
         
+        elif model_name == 'hf_transformer' and HF_AVAILABLE:
+            # HF transformer prediction
+            combined_data = X.copy()
+            # Add dummy target column (will be ignored)
+            if 'target' not in combined_data.columns:
+                combined_data['target'] = 0
+            return self.hf_predictor.predict(combined_data)
+        
         else:
             return model.predict(X)
     
     def ensemble_predict(self, X: pd.DataFrame, method: str = 'average') -> np.ndarray:
-        """
-        Make ensemble predictions
-        
-        Args:
-            X: Features for prediction
-            method: Ensemble method ('average', 'weighted', 'voting')
-        
-        Returns:
-            Ensemble predictions
-        """
+        """Make ensemble predictions"""
         predictions = {}
         
         for name, model in self.models.items():
@@ -314,26 +413,52 @@ class StockPredictor:
                     sequence_length = 60
                     if len(X) >= sequence_length:
                         X_seq = X.iloc[-sequence_length:].values.reshape(1, sequence_length, -1)
-                        predictions[name] = model.predict(X_seq).flatten()
+                        pred = model.predict(X_seq).flatten()
+                        # Repeat the prediction for all samples
+                        predictions[name] = np.full(len(X), pred[0])
+                    else:
+                        predictions[name] = np.zeros(len(X))
                 elif name == 'dense_nn':
-                    predictions[name] = model.predict(X).flatten()
+                    pred = model.predict(X).flatten()
+                    predictions[name] = pred
                 else:
-                    predictions[name] = model.predict(X)
+                    pred = model.predict(X)
+                    # Ensure prediction is 1D array
+                    if pred.ndim > 1:
+                        pred = pred.flatten()
+                    predictions[name] = pred
             except Exception as e:
                 print(f"Error making prediction with {name}: {str(e)}")
+                # Use zeros as fallback
+                predictions[name] = np.zeros(len(X))
+        
+        if not predictions:
+            return np.zeros(len(X))
+        
+        # Convert all predictions to numpy arrays and ensure they have the same length
+        pred_arrays = []
+        for name, pred in predictions.items():
+            pred_array = np.array(pred).flatten()
+            if len(pred_array) != len(X):
+                # Pad or truncate to match X length
+                if len(pred_array) < len(X):
+                    pred_array = np.pad(pred_array, (0, len(X) - len(pred_array)), mode='edge')
+                else:
+                    pred_array = pred_array[:len(X)]
+            pred_arrays.append(pred_array)
         
         if method == 'average':
-            return np.mean(list(predictions.values()), axis=0)
+            return np.mean(pred_arrays, axis=0)
         elif method == 'weighted':
             # Simple equal weighting
-            return np.mean(list(predictions.values()), axis=0)
+            return np.mean(pred_arrays, axis=0)
         elif method == 'voting':
             if self.task == 'classification':
                 # Majority vote
-                votes = np.array(list(predictions.values()))
+                votes = np.array(pred_arrays)
                 return np.round(np.mean(votes, axis=0))
             else:
-                return np.mean(list(predictions.values()), axis=0)
+                return np.mean(pred_arrays, axis=0)
         else:
             raise ValueError(f"Unknown ensemble method: {method}")
     
@@ -378,6 +503,85 @@ class AdvancedStockPredictor(StockPredictor):
     def __init__(self, model_type: str = 'ensemble', task: str = 'regression'):
         super().__init__(model_type, task)
         self.ensemble_weights = {}
+    
+    def train_model(self, data: pd.DataFrame, target_column: str, model_type: str = 'ensemble', 
+                   task: str = 'regression') -> Dict[str, Any]:
+        """
+        Train a model for stock prediction
+        
+        Args:
+            data: DataFrame with features and target
+            target_column: Name of the target column
+            model_type: Type of model to train
+            task: Prediction task ('regression' or 'classification')
+        
+        Returns:
+            Dictionary with training results and predictions
+        """
+        # Update model type and task
+        self.model_type = model_type
+        self.task = task
+        
+        # Prepare data
+        feature_columns = [col for col in data.columns 
+                          if col != target_column 
+                          and not col.startswith('Target_')
+                          and data[col].dtype in ['int64', 'float64', 'float32', 'int32']]
+        X = data[feature_columns]
+        y = data[target_column]
+        
+        # Remove any remaining NaN values
+        mask = ~(X.isna().any(axis=1) | y.isna())
+        X = X[mask]
+        y = y[mask]
+        
+        if X.empty or y.empty:
+            raise ValueError("No valid data after removing NaN values")
+        
+        print(f"Training data shape: {X.shape}")
+        print(f"Target distribution: {y.describe()}")
+        
+        # Split data (80% train, 20% test)
+        split_idx = int(0.8 * len(X))
+        X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
+        y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
+        
+        # Train models
+        results = self.train_models(X_train, y_train, X_test, y_test)
+        
+        # Make predictions on test set
+        predictions = self.ensemble_predict(X_test)
+        
+        # Calculate metrics
+        if self.task == 'regression':
+            metrics = {
+                'mse': mean_squared_error(y_test, predictions),
+                'mae': mean_absolute_error(y_test, predictions),
+                'rmse': np.sqrt(mean_squared_error(y_test, predictions))
+            }
+        else:
+            # For classification, convert predictions to binary
+            pred_binary = (predictions > 0.5).astype(int)
+            metrics = {
+                'accuracy': accuracy_score(y_test, pred_binary),
+                'mse': mean_squared_error(y_test, predictions)
+            }
+        
+        # Get feature importance
+        feature_importance = self.get_feature_importance()
+        if feature_importance:
+            # Convert to pandas Series for easier handling
+            feature_importance = pd.Series(feature_importance).sort_values(ascending=False)
+        
+        return {
+            'metrics': metrics,
+            'predictions': predictions,
+            'y_test': y_test,
+            'feature_importance': feature_importance,
+            'test_indices': range(len(predictions)),
+            'model_type': model_type,
+            'task': task
+        }
     
     def optimize_hyperparameters(self, X_train: pd.DataFrame, y_train: pd.Series,
                                model_name: str, param_grid: Dict[str, List]) -> Dict[str, Any]:

@@ -1,0 +1,124 @@
+{
+  "test_date": "2025-11-19T18:09:23.368258",
+  "tests": {
+    "authentication": {
+      "status": "success",
+      "user": "kings1"
+    },
+    "model_search": {
+      "status": "success",
+      "models_found": 4,
+      "models": [
+        {
+          "name": "manu1612/stock_market_predict",
+          "likes": 1,
+          "link": "https://hf.co/manu1612/stock_market_predict"
+        },
+        {
+          "name": "WaterReservoirManagement/StockMarketPrediction",
+          "link": "https://hf.co/WaterReservoirManagement/StockMarketPrediction"
+        },
+        {
+          "name": "galang006/stock_market_predict_LSTM",
+          "library": "keras",
+          "downloads": 16,
+          "link": "https://hf.co/galang006/stock_market_predict_LSTM"
+        },
+        {
+          "name": "rajpriyanshu112/STOCKMARKET_PREDICTION_LSTM",
+          "link": "https://hf.co/rajpriyanshu112/STOCKMARKET_PREDICTION_LSTM"
+        }
+      ]
+    },
+    "paper_search": {
+      "status": "success",
+      "papers_found": 5,
+      "papers": [
+        {
+          "title": "Stock Market Prediction using Natural Language Processing -- A Survey",
+          "authors": "Om Mane, Saravanakumar kandasamy",
+          "published": "26 Aug, 2022",
+          "link": "https://hf.co/papers/2208.13564"
+        },
+        {
+          "title": "Stock Price Prediction Using Machine Learning and LSTM-Based Deep Learning Models",
+          "authors": "Sidra Mehtab, Jaydip Sen, Abhishek Dutta",
+          "published": "20 Sep, 2020",
+          "link": "https://hf.co/papers/2009.10819"
+        },
+        {
+          "title": "A Time Series Analysis-Based Stock Price Prediction Using Machine Learning and Deep Learning Models",
+          "authors": "Sidra Mehtab, Jaydip Sen",
+          "published": "17 Apr, 2020",
+          "link": "https://hf.co/papers/2004.11697"
+        },
+        {
+          "title": "Feature Learning for Stock Price Prediction Shows a Significant Role of Analyst Rating",
+          "authors": "Jaideep Singh, Matloob Khushi",
+          "published": "13 Mar, 2021",
+          "link": "https://hf.co/papers/2103.09106"
+        },
+        {
+          "title": "Predicting Stock Market Time-Series Data using CNN-LSTM Neural Network Model",
+          "authors": "Aadhitya A, Rajapriya R, Vineetha R S, Anurag M Bagde",
+          "published": "21 May, 2023",
+          "link": "https://hf.co/papers/2305.14378"
+        }
+      ]
+    },
+    "repo_details": {
+      "status": "success",
+      "repos": {
+        "manu1612/stock_market_predict": {
+          "type": "Model",
+          "author": "manu1612",
+          "likes": 1,
+          "updated": "13 Jun, 2023",
+          "link": "https://hf.co/manu1612/stock_market_predict"
+        },
+        "galang006/stock_market_predict_LSTM": {
+          "type": "Model",
+          "author": "galang006",
+          "library": "keras",
+          "downloads": 43,
+          "updated": "13 Jun, 2025",
+          "link": "https://hf.co/galang006/stock_market_predict_LSTM"
+        }
+      }
+    },
+    "doc_search": {
+      "status": "success",
+      "models_found": [
+        "Autoformer",
+        "Time Series Transformer",
+        "PatchTST",
+        "PatchTSMixer",
+        "TimesFM",
+        "Informer"
+      ]
+    },
+    "lstm_models": {
+      "status": "success",
+      "model": {
+        "name": "RijalMuluk/adro.jk-time_series-LSTM",
+        "library": "keras",
+        "downloads": 37,
+        "likes": 1,
+        "tags": [
+          "keras",
+          "time-series",
+          "stock-prediction",
+          "lstm",
+          "tensorflow",
+          "finance"
+        ],
+        "link": "https://hf.co/RijalMuluk/adro.jk-time_series-LSTM"
+      }
+    }
+  },
+  "summary": {
+    "total_tests": 6,
+    "successful": 6,
+    "warnings": 2
+  }
+}

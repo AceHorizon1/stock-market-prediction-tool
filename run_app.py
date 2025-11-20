@@ -12,7 +12,7 @@ import importlib.util
 def check_dependencies():
     """Check if all required dependencies are installed"""
     required_packages = [
-        'pandas', 'numpy', 'yfinance', 'scikit-learn', 'streamlit',
+        'pandas', 'numpy', 'yfinance', 'sklearn', 'streamlit',
         'plotly', 'matplotlib', 'seaborn', 'ta'
     ]
     

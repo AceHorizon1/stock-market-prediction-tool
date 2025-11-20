@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 import ta
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.decomposition import PCA
@@ -302,39 +302,107 @@ class FeatureEngineer:
         """
         print("Starting feature engineering...")
         
+        # Check if we have multi-stock data
+        if 'Stock_Symbol' in data.columns or 'Symbol' in data.columns:
+            symbol_col = 'Stock_Symbol' if 'Stock_Symbol' in data.columns else 'Symbol'
+            symbols = data[symbol_col].unique()
+            
+            print(f"Processing {len(symbols)} stocks: {symbols}")
+            
+            # Process each stock separately
+            engineered_dfs = []
+            
+            for symbol in symbols:
+                print(f"  Processing {symbol}...")
+                stock_data = data[data[symbol_col] == symbol].copy()
+                
+                if stock_data.empty:
+                    print(f"    Warning: No data for {symbol}")
+                    continue
+                
+                print(f"    Stock data shape: {stock_data.shape}")
+                
+                # Apply feature engineering to this stock
+                stock_engineered = self._engineer_single_stock(stock_data, target_horizons)
+                
+                print(f"    Engineered shape for {symbol}: {stock_engineered.shape}")
+                
+                if not stock_engineered.empty:
+                    engineered_dfs.append(stock_engineered)
+                    print(f"    Added {symbol} to results")
+                else:
+                    print(f"    Warning: {symbol} produced empty result")
+            
+            # Combine all stocks
+            if engineered_dfs:
+                print(f"Combining {len(engineered_dfs)} stocks...")
+                df = pd.concat(engineered_dfs, ignore_index=False)
+                df = df.sort_index()
+                print(f"Combined shape: {df.shape}")
+            else:
+                print("No valid engineered data to combine")
+                df = pd.DataFrame()
+        else:
+            # Single stock data - process normally
+            print("Processing single stock data...")
+            df = self._engineer_single_stock(data, target_horizons)
+        
+        print(f"Feature engineering complete. Final shape: {df.shape}")
+        return df
+    
+    def _engineer_single_stock(self, data: pd.DataFrame, target_horizons: List[int]) -> pd.DataFrame:
+        """
+        Apply feature engineering to a single stock's data
+        
+        Args:
+            data: Single stock OHLCV DataFrame
+            target_horizons: List of prediction horizons
+        
+        Returns:
+            DataFrame with engineered features
+        """
+        print(f"      [DEBUG] Initial rows: {data.shape[0]}")
         # Add technical indicators
         print("Adding technical indicators...")
         df = self.add_technical_indicators(data)
-        
+        print(f"      [DEBUG] After technical indicators: {df.shape[0]}")
         # Add statistical features
         print("Adding statistical features...")
         df = self.add_statistical_features(df)
-        
+        print(f"      [DEBUG] After statistical features: {df.shape[0]}")
         # Add market microstructure features
         print("Adding market microstructure features...")
         df = self.add_market_microstructure_features(df)
-        
+        print(f"      [DEBUG] After market microstructure: {df.shape[0]}")
         # Add time features
         print("Adding time features...")
         df = self.add_time_features(df)
-        
+        print(f"      [DEBUG] After time features: {df.shape[0]}")
         # Add lag features for key columns
-        key_columns = ['Close', 'Volume', 'Returns', 'RSI', 'MACD']
+        key_columns = ['Close', 'Volume', 'Returns']
         df = self.add_lag_features(df, key_columns, [1, 2, 3, 5, 10])
-        
+        print(f"      [DEBUG] After lag features: {df.shape[0]}")
         # Add rolling features
         rolling_columns = ['Close', 'Volume', 'Returns']
         df = self.add_rolling_features(df, rolling_columns, [5, 10, 20])
-        
+        print(f"      [DEBUG] After rolling features: {df.shape[0]}")
         # Create target variables
         print("Creating target variables...")
         df = self.create_target_variables(df, target_horizons)
-        
-        # Remove infinite and NaN values
+        print(f"      [DEBUG] After target variables: {df.shape[0]}")
+        # Remove infinite values
         df = df.replace([np.inf, -np.inf], np.nan)
-        df = df.dropna()
-        
-        print(f"Feature engineering complete. Final shape: {df.shape}")
+        # Only drop rows where main target columns are NaN (not all Target_ columns)
+        target_columns = [col for col in df.columns if col.startswith('Target_Return_')]
+        if target_columns:
+            print(f"      [DEBUG] NaNs in main target columns before dropna:")
+            for col in target_columns:
+                print(f"        {col}: {df[col].isna().sum()} NaNs")
+            df = df.dropna(subset=target_columns)
+            print(f"      [DEBUG] After dropna on main targets: {df.shape[0]}")
+        # Fill remaining NaN values with forward fill, then backward fill
+        df = df.fillna(method='ffill').fillna(method='bfill')
+        print(f"      [DEBUG] After fillna: {df.shape[0]}")
         return df
     
     def select_features(self, data: pd.DataFrame, target_column: str, 

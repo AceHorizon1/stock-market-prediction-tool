@@ -29,8 +29,10 @@ class StockPredictionApp:
         self.feature_engineer = FeatureEngineer()
         self.predictor = None
         self.evaluator = ModelEvaluator()
-        self.data = None
-        self.engineered_data = None
+        
+        # Restore data from session state if available
+        self.data = st.session_state.get('raw_data', None)
+        self.engineered_data = st.session_state.get('engineered_data', None)
         
     def run(self):
         """Run the Streamlit application"""
@@ -46,6 +48,13 @@ class StockPredictionApp:
         
         # Sidebar
         self.sidebar()
+        
+        # Restore data from session state on each run
+        if st.session_state.get('data_loaded', False):
+            if self.engineered_data is None:
+                self.engineered_data = st.session_state.get('engineered_data', None)
+            if self.data is None:
+                self.data = st.session_state.get('raw_data', None)
         
         # Main content
         if st.session_state.get('data_loaded', False):
@@ -76,8 +85,9 @@ class StockPredictionApp:
         )
         
         # Include additional data
-        include_market_data = st.sidebar.checkbox("Include Market Data", value=True)
-        include_economic_data = st.sidebar.checkbox("Include Economic Data", value=False)
+        st.sidebar.info("💡 Note: External APIs (market/economic data) are temporarily disabled for demo purposes")
+        include_market_data = st.sidebar.checkbox("Include Market Data", value=False, disabled=True)
+        include_economic_data = st.sidebar.checkbox("Include Economic Data", value=False, disabled=True)
         
         # Load data button
         if st.sidebar.button("Load Data", type="primary"):
@@ -90,8 +100,9 @@ class StockPredictionApp:
             
             model_type = st.sidebar.selectbox(
                 "Model Type",
-                options=['ensemble', 'tree', 'linear', 'neural', 'deep'],
-                index=0
+                options=['ensemble', 'tree', 'linear', 'neural', 'deep', 'hf_transformer'],
+                index=0,
+                help="hf_transformer uses Hugging Face PatchTST model for advanced time series forecasting"
             )
             
             task = st.sidebar.selectbox(
@@ -161,32 +172,83 @@ class StockPredictionApp:
     def load_data(self, symbols, period, include_market_data, include_economic_data):
         """Load and process data"""
         try:
-            # Load data
-            self.data = self.data_collector.create_comprehensive_dataset(
-                symbols, include_market_data, include_economic_data
-            )
+            # Show progress
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            status_text.text("Loading stock data...")
+            progress_bar.progress(25)
+            
+            # Load data with better error handling
+            try:
+                self.data = self.data_collector.create_comprehensive_dataset(
+                    symbols, 
+                    include_market_data=False,  # Disable for now to avoid API issues
+                    include_economic_data=False  # Disable for now to avoid API issues
+                )
+            except Exception as e:
+                st.error(f"Error in data collection: {str(e)}")
+                return
             
             if self.data.empty:
                 st.error("No data loaded. Please check your symbols and try again.")
                 return
             
-            # Engineer features
-            self.engineered_data = self.feature_engineer.engineer_all_features(
-                self.data, target_horizons=[1, 3, 5, 10, 20]
-            )
+            status_text.text("Engineering features...")
+            progress_bar.progress(50)
             
+            # Engineer features
+            try:
+                self.engineered_data = self.feature_engineer.engineer_all_features(
+                    self.data, target_horizons=[1, 3, 5, 10, 20]
+                )
+            except Exception as e:
+                st.error(f"Error in feature engineering: {str(e)}")
+                return
+            
+            if self.engineered_data.empty:
+                st.error("Feature engineering produced no usable data.")
+                return
+            
+            status_text.text("Finalizing...")
+            progress_bar.progress(100)
+            
+            # Store in session state for persistence
             st.session_state['data_loaded'] = True
             st.session_state['symbols'] = symbols
             st.session_state['period'] = period
+            st.session_state['raw_data'] = self.data
+            st.session_state['engineered_data'] = self.engineered_data
+            
+            # Clear progress indicators
+            progress_bar.empty()
+            status_text.empty()
             
             st.success(f"✅ Data loaded successfully! Shape: {self.engineered_data.shape}")
             
+            # Show data info
+            with st.expander("Data Information"):
+                st.write(f"**Dataset Shape:** {self.engineered_data.shape}")
+                st.write(f"**Date Range:** {self.engineered_data.index.min()} to {self.engineered_data.index.max()}")
+                st.write(f"**Stocks:** {', '.join(symbols)}")
+                st.write(f"**Features:** {len(self.engineered_data.columns)}")
+                
+                # Show sample data
+                st.write("**Sample Data:**")
+                st.dataframe(self.engineered_data.head())
+            
         except Exception as e:
             st.error(f"Error loading data: {str(e)}")
+            st.exception(e)
     
     def train_model(self, model_type, task, target_horizon):
         """Train the prediction model"""
         try:
+            # Check if engineered_data exists
+            if self.engineered_data is None or self.engineered_data.empty:
+                st.error("No engineered data available. Please load and engineer features first.")
+                return
+            
             # Prepare data
             target_column = f'Target_Return_{target_horizon}d'
             
@@ -201,13 +263,25 @@ class StockPredictionApp:
                 st.error("No valid data after cleaning")
                 return
             
-            # Select features
-            feature_columns = self.feature_engineer.select_features(
-                data_clean, target_column, method='correlation', threshold=0.01
-            )
+            # Select features - use all numeric columns except target
+            feature_columns = [col for col in data_clean.columns 
+                             if col != target_column 
+                             and not col.startswith('Target_')
+                             and data_clean[col].dtype in ['int64', 'float64', 'float32', 'int32']]
+            
+            # Try to use select_features if it exists, otherwise use all numeric columns
+            if hasattr(self.feature_engineer, 'select_features'):
+                try:
+                    selected = self.feature_engineer.select_features(
+                        data_clean, target_column, method='correlation', threshold=0.01
+                    )
+                    if selected and len(selected) > 0:
+                        feature_columns = selected
+                except:
+                    pass  # Fall back to all numeric columns
             
             if not feature_columns:
-                st.error("No features selected. Try lowering the correlation threshold.")
+                st.error("No features available for training. Please check your data.")
                 return
             
             # Prepare X and y
@@ -222,8 +296,32 @@ class StockPredictionApp:
             # Initialize and train model
             self.predictor = AdvancedStockPredictor(model_type=model_type, task=task)
             
-            # Train models
-            results = self.predictor.train_models(X_train, y_train, X_val, y_val)
+            # Special handling for HF transformer
+            if model_type == 'hf_transformer':
+                st.warning("⚠️ WARNING: HF Transformer can be unstable and may cause crashes. Consider using 'ensemble' or 'tree' models for more reliable results.")
+                st.info("🤖 Using Hugging Face Transformer (PatchTST). Training with minimal settings for stability.")
+                
+                # Check data size
+                if len(X_train) < 200:
+                    st.error(f"❌ Insufficient data for HF transformer. Need at least 200 samples, got {len(X_train)}. Please load more data or use a different model.")
+                    return
+                
+                # Train models with extensive error handling
+                try:
+                    with st.spinner("Training HF transformer (this may take a while and could be unstable)..."):
+                        results = self.predictor.train_models(X_train, y_train, X_val, y_val)
+                except MemoryError:
+                    st.error("❌ Out of memory error. HF transformer requires too much memory.")
+                    st.info("💡 Tip: Try using 'ensemble' or 'tree' model types instead, or reduce your data size.")
+                    return
+                except Exception as e:
+                    st.error(f"❌ Error training HF transformer: {str(e)}")
+                    st.warning("⚠️ HF transformer crashed. This is a known issue with the current implementation.")
+                    st.info("💡 Recommendation: Use 'ensemble' or 'tree' model types for more stable results.")
+                    return
+            else:
+                # Train models
+                results = self.predictor.train_models(X_train, y_train, X_val, y_val)
             
             # Store results
             st.session_state['model_trained'] = True
@@ -240,6 +338,11 @@ class StockPredictionApp:
     
     def main_content(self):
         """Display main content after data is loaded"""
+        # Check if we have engineered data
+        if self.engineered_data is None or self.engineered_data.empty:
+            st.info("📊 Data loaded. Please wait for feature engineering to complete, or engineer features manually.")
+            return
+        
         # Data overview
         self.show_data_overview()
         
@@ -253,6 +356,11 @@ class StockPredictionApp:
     def show_data_overview(self):
         """Show data overview"""
         st.header("📊 Data Overview")
+        
+        # Check if engineered_data exists
+        if self.engineered_data is None or self.engineered_data.empty:
+            st.warning("⚠️ No engineered data available. Please load and engineer features first.")
+            return
         
         col1, col2, col3 = st.columns(3)
         
